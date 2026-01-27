@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 )
 
 type OpenAIResponse struct {
@@ -17,7 +18,7 @@ type OpenAIResponse struct {
 }
 
 func Analyze(errorText string) {
-	apiKey := ""
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("⚠️ OPENAI_API_KEY not set")
 		return
