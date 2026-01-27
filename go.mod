@@ -1,3 +1,3 @@
-module 180.179.15.226/ecx.mern.apandey/errorly
+module github.com/aadityapandey-pixel/errorly
 
 go 1.23.4
