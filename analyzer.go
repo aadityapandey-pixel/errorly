@@ -17,7 +17,7 @@ type OpenAIResponse struct {
 }
 
 func Analyze(errorText string) {
-	apiKey := "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"
+	apiKey := ""
 	if apiKey == "" {
 		fmt.Println("⚠️ OPENAI_API_KEY not set")
 		return
