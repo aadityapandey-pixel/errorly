@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -139,7 +140,7 @@ func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) 
 
 func callOllama(prompt string) {
 	body := map[string]interface{}{
-		"model":  "phi3", // fast model
+		"model":  "phi3",
 		"prompt": prompt,
 		"stream": false,
 		"options": map[string]interface{}{
@@ -149,9 +150,10 @@ func callOllama(prompt string) {
 
 	jsonBody, _ := json.Marshal(body)
 
-	resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		fmt.Println("❌ Ollama not running. Install from https://ollama.com and run: ollama run llama3")
+		fmt.Println("❌ Ollama not running. Install Ollama and run: ollama pull phi3")
 		return
 	}
 	defer resp.Body.Close()
@@ -165,7 +167,9 @@ func callOllama(prompt string) {
 		return
 	}
 
-	if response, ok := result["response"].(string); ok {
+	if response, ok := result["response"].(string); ok && response != "" {
 		PrintFormatted(response)
+	} else {
+		fmt.Println("⚠️ Ollama returned empty response")
 	}
 }
