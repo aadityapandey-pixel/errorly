@@ -139,18 +139,19 @@ func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) 
 }
 
 func callOllama(prompt string) {
+	fmt.Println("🖥 Ollama model being used: phi3")
 	body := map[string]interface{}{
 		"model":  "phi3",
 		"prompt": prompt,
 		"stream": false,
 		"options": map[string]interface{}{
-			"num_predict": 200,
+			"num_predict": 120,
 		},
 	}
 
 	jsonBody, _ := json.Marshal(body)
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 25 * time.Second}
 	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		fmt.Println("❌ Ollama not running. Install Ollama and run: ollama pull phi3")
