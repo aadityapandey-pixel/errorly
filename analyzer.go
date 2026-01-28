@@ -139,7 +139,7 @@ func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) 
 
 func callOllama(prompt string) {
 	body := map[string]interface{}{
-		"model":  "llama3",
+		"model":  "phi3", // fast model
 		"prompt": prompt,
 		"stream": false,
 		"options": map[string]interface{}{
