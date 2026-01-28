@@ -51,7 +51,7 @@ EXAMPLE FIX CODE:`
 	if geminiKey != "" {
 		fmt.Println("✨ Using Google Gemini")
 
-		url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiKey
+		url := "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" + geminiKey
 
 		body := map[string]interface{}{
 			"contents": []map[string]interface{}{
