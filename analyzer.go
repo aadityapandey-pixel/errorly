@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type OpenAIResponse struct {
@@ -18,6 +21,11 @@ type OpenAIResponse struct {
 }
 
 func Analyze(errorText string) {
+	// Load the .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("⚠️ OPENAI_API_KEY not set")
