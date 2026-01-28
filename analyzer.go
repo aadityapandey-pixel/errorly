@@ -142,6 +142,9 @@ func callOllama(prompt string) {
 		"model":  "llama3",
 		"prompt": prompt,
 		"stream": false,
+		"options": map[string]interface{}{
+			"num_predict": 200,
+		},
 	}
 
 	jsonBody, _ := json.Marshal(body)
