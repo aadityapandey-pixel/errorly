@@ -30,7 +30,6 @@ type GeminiResponse struct {
 }
 
 func Analyze(errorText string) {
-	// Load .env if exists (optional)
 	_ = godotenv.Load()
 
 	geminiKey := os.Getenv("GEMINI_API_KEY")
@@ -47,7 +46,7 @@ EXAMPLE FIX CODE:`
 
 	userPrompt := "Error:\n" + errorText
 
-	// 🟣 GEMINI (Priority 1)
+	// 🟣 GEMINI
 	if geminiKey != "" {
 		fmt.Println("✨ Using Google Gemini")
 
@@ -65,55 +64,44 @@ EXAMPLE FIX CODE:`
 
 		jsonBody, _ := json.Marshal(body)
 		resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
-		if err != nil {
-			fmt.Println("Gemini request failed:", err)
-			return
-		}
-		defer resp.Body.Close()
+		if err == nil {
+			defer resp.Body.Close()
+			respBody, _ := io.ReadAll(resp.Body)
 
-		respBody, _ := io.ReadAll(resp.Body)
-
-		var result GeminiResponse
-		if err := json.Unmarshal(respBody, &result); err != nil || len(result.Candidates) == 0 {
-			fmt.Println("Failed to parse Gemini response")
-			fmt.Println(string(respBody))
-			return
+			var result GeminiResponse
+			if json.Unmarshal(respBody, &result) == nil && len(result.Candidates) > 0 {
+				PrintFormatted(result.Candidates[0].Content.Parts[0].Text)
+				return
+			}
 		}
 
-		PrintFormatted(result.Candidates[0].Content.Parts[0].Text)
-		return
+		fmt.Println("⚠️ Gemini failed, falling back...")
 	}
 
-	// 🔵 DEEPSEEK (Priority 2)
+	// 🔵 DEEPSEEK
 	if deepseekKey != "" {
 		fmt.Println("🧠 Using DeepSeek AI")
-		callOpenAIStyleAPI(
-			"https://api.deepseek.com/v1/chat/completions",
-			"deepseek-chat",
-			deepseekKey,
-			systemPrompt,
-			userPrompt,
-		)
-		return
+		if callOpenAIStyleAPI("https://api.deepseek.com/v1/chat/completions", "deepseek-chat", deepseekKey, systemPrompt, userPrompt) {
+			return
+		}
+		fmt.Println("⚠️ DeepSeek failed, falling back...")
 	}
 
-	// 🟢 OPENAI (Priority 3)
+	// 🟢 OPENAI
 	if openaiKey != "" {
 		fmt.Println("🤖 Using OpenAI")
-		callOpenAIStyleAPI(
-			"https://api.openai.com/v1/chat/completions",
-			"gpt-4o-mini",
-			openaiKey,
-			systemPrompt,
-			userPrompt,
-		)
-		return
+		if callOpenAIStyleAPI("https://api.openai.com/v1/chat/completions", "gpt-4o-mini", openaiKey, systemPrompt, userPrompt) {
+			return
+		}
+		fmt.Println("⚠️ OpenAI failed, falling back...")
 	}
 
-	fmt.Println("❌ No AI API key found. Set GEMINI_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
+	// 🖥 OLLAMA FALLBACK (FREE LOCAL AI)
+	fmt.Println("🖥 No working cloud AI found, switching to Local Ollama...")
+	callOllama(systemPrompt + "\n" + userPrompt)
 }
 
-func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) {
+func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) bool {
 	body := map[string]interface{}{
 		"model": model,
 		"messages": []map[string]string{
@@ -124,32 +112,57 @@ func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) 
 	}
 
 	jsonBody, _ := json.Marshal(body)
-
 	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		fmt.Println("Request creation failed:", err)
-		return
+		return false
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
-		fmt.Println("AI request failed:", err)
-		return
+		return false
 	}
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
 
 	var result OpenAIStyleResponse
-	if err := json.Unmarshal(respBody, &result); err != nil || len(result.Choices) == 0 {
-		fmt.Println("Failed to parse AI response")
+	if json.Unmarshal(respBody, &result) != nil || len(result.Choices) == 0 {
+		return false
+	}
+
+	PrintFormatted(result.Choices[0].Message.Content)
+	return true
+}
+
+func callOllama(prompt string) {
+	body := map[string]interface{}{
+		"model":  "llama3",
+		"prompt": prompt,
+		"stream": false,
+	}
+
+	jsonBody, _ := json.Marshal(body)
+
+	resp, err := http.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		fmt.Println("❌ Ollama not running. Install from https://ollama.com and run: ollama run llama3")
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	var result map[string]interface{}
+	if json.Unmarshal(respBody, &result) != nil {
+		fmt.Println("Failed to parse Ollama response")
 		fmt.Println(string(respBody))
 		return
 	}
 
-	PrintFormatted(result.Choices[0].Message.Content)
+	if response, ok := result["response"].(string); ok {
+		PrintFormatted(response)
+	}
 }
