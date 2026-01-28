@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
 )
 
-type OpenAIResponse struct {
+type AIResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
@@ -21,14 +20,29 @@ type OpenAIResponse struct {
 }
 
 func Analyze(errorText string) {
-	// Load the .env file
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		fmt.Println("⚠️ OPENAI_API_KEY not set")
+	// Try loading .env (optional)
+	_ = godotenv.Load()
+
+	deepseekKey := os.Getenv("DEEPSEEK_API_KEY")
+	openaiKey := os.Getenv("OPENAI_API_KEY")
+
+	var apiURL string
+	var apiKey string
+	var model string
+
+	// Decide provider automatically
+	if deepseekKey != "" {
+		apiURL = "https://api.deepseek.com/v1/chat/completions"
+		apiKey = deepseekKey
+		model = "deepseek-chat"
+		fmt.Println("🧠 Using DeepSeek AI")
+	} else if openaiKey != "" {
+		apiURL = "https://api.openai.com/v1/chat/completions"
+		apiKey = openaiKey
+		model = "gpt-4o-mini"
+		fmt.Println("🤖 Using OpenAI")
+	} else {
+		fmt.Println("❌ No AI API key found. Set OPENAI_API_KEY or DEEPSEEK_API_KEY")
 		return
 	}
 
@@ -43,7 +57,7 @@ EXAMPLE FIX CODE:`
 	userPrompt := "Error:\n" + errorText
 
 	body := map[string]interface{}{
-		"model": "gpt-4o-mini",
+		"model": model,
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": userPrompt},
@@ -53,7 +67,7 @@ EXAMPLE FIX CODE:`
 
 	jsonBody, _ := json.Marshal(body)
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		fmt.Println("Request creation failed:", err)
 		return
@@ -72,7 +86,7 @@ EXAMPLE FIX CODE:`
 
 	respBody, _ := io.ReadAll(resp.Body)
 
-	var result OpenAIResponse
+	var result AIResponse
 	err = json.Unmarshal(respBody, &result)
 	if err != nil || len(result.Choices) == 0 {
 		fmt.Println("Failed to parse AI response")
