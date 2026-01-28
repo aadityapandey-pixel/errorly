@@ -30,6 +30,7 @@ type GeminiResponse struct {
 }
 
 func Analyze(errorText string) {
+	// Load .env if exists (optional)
 	_ = godotenv.Load()
 
 	geminiKey := os.Getenv("GEMINI_API_KEY")
@@ -46,11 +47,11 @@ EXAMPLE FIX CODE:`
 
 	userPrompt := "Error:\n" + errorText
 
-	//  GEMINI
+	// 🟣 GEMINI (Priority 1)
 	if geminiKey != "" {
 		fmt.Println("✨ Using Google Gemini")
 
-		url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + geminiKey
+		url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiKey
 
 		body := map[string]interface{}{
 			"contents": []map[string]interface{}{
@@ -83,17 +84,29 @@ EXAMPLE FIX CODE:`
 		return
 	}
 
-	//  DEEPSEEK
+	// 🔵 DEEPSEEK (Priority 2)
 	if deepseekKey != "" {
 		fmt.Println("🧠 Using DeepSeek AI")
-		callOpenAIStyleAPI("https://api.deepseek.com/v1/chat/completions", "deepseek-chat", deepseekKey, systemPrompt, userPrompt)
+		callOpenAIStyleAPI(
+			"https://api.deepseek.com/v1/chat/completions",
+			"deepseek-chat",
+			deepseekKey,
+			systemPrompt,
+			userPrompt,
+		)
 		return
 	}
 
-	//  OPENAI
+	// 🟢 OPENAI (Priority 3)
 	if openaiKey != "" {
 		fmt.Println("🤖 Using OpenAI")
-		callOpenAIStyleAPI("https://api.openai.com/v1/chat/completions", "gpt-4o-mini", openaiKey, systemPrompt, userPrompt)
+		callOpenAIStyleAPI(
+			"https://api.openai.com/v1/chat/completions",
+			"gpt-4o-mini",
+			openaiKey,
+			systemPrompt,
+			userPrompt,
+		)
 		return
 	}
 
@@ -112,7 +125,12 @@ func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) 
 
 	jsonBody, _ := json.Marshal(body)
 
-	req, _ := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		fmt.Println("Request creation failed:", err)
+		return
+	}
+
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
