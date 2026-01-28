@@ -11,7 +11,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type AIResponse struct {
+type OpenAIStyleResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
@@ -19,32 +19,22 @@ type AIResponse struct {
 	} `json:"choices"`
 }
 
+type GeminiResponse struct {
+	Candidates []struct {
+		Content struct {
+			Parts []struct {
+				Text string `json:"text"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
+}
+
 func Analyze(errorText string) {
-	// Try loading .env (optional)
 	_ = godotenv.Load()
 
+	geminiKey := os.Getenv("GEMINI_API_KEY")
 	deepseekKey := os.Getenv("DEEPSEEK_API_KEY")
 	openaiKey := os.Getenv("OPENAI_API_KEY")
-
-	var apiURL string
-	var apiKey string
-	var model string
-
-	// Decide provider automatically
-	if deepseekKey != "" {
-		apiURL = "https://api.deepseek.com/v1/chat/completions"
-		apiKey = deepseekKey
-		model = "deepseek-chat"
-		fmt.Println("🧠 Using DeepSeek AI")
-	} else if openaiKey != "" {
-		apiURL = "https://api.openai.com/v1/chat/completions"
-		apiKey = openaiKey
-		model = "gpt-4o-mini"
-		fmt.Println("🤖 Using OpenAI")
-	} else {
-		fmt.Println("❌ No AI API key found. Set OPENAI_API_KEY or DEEPSEEK_API_KEY")
-		return
-	}
 
 	systemPrompt := `You are a senior Golang debugging expert.
 Analyze Go errors and respond ONLY in this format:
@@ -56,6 +46,61 @@ EXAMPLE FIX CODE:`
 
 	userPrompt := "Error:\n" + errorText
 
+	//  GEMINI
+	if geminiKey != "" {
+		fmt.Println("✨ Using Google Gemini")
+
+		url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + geminiKey
+
+		body := map[string]interface{}{
+			"contents": []map[string]interface{}{
+				{
+					"parts": []map[string]string{
+						{"text": systemPrompt + "\n" + userPrompt},
+					},
+				},
+			},
+		}
+
+		jsonBody, _ := json.Marshal(body)
+		resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+		if err != nil {
+			fmt.Println("Gemini request failed:", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		respBody, _ := io.ReadAll(resp.Body)
+
+		var result GeminiResponse
+		if err := json.Unmarshal(respBody, &result); err != nil || len(result.Candidates) == 0 {
+			fmt.Println("Failed to parse Gemini response")
+			fmt.Println(string(respBody))
+			return
+		}
+
+		PrintFormatted(result.Candidates[0].Content.Parts[0].Text)
+		return
+	}
+
+	//  DEEPSEEK
+	if deepseekKey != "" {
+		fmt.Println("🧠 Using DeepSeek AI")
+		callOpenAIStyleAPI("https://api.deepseek.com/v1/chat/completions", "deepseek-chat", deepseekKey, systemPrompt, userPrompt)
+		return
+	}
+
+	//  OPENAI
+	if openaiKey != "" {
+		fmt.Println("🤖 Using OpenAI")
+		callOpenAIStyleAPI("https://api.openai.com/v1/chat/completions", "gpt-4o-mini", openaiKey, systemPrompt, userPrompt)
+		return
+	}
+
+	fmt.Println("❌ No AI API key found. Set GEMINI_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
+}
+
+func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) {
 	body := map[string]interface{}{
 		"model": model,
 		"messages": []map[string]string{
@@ -67,12 +112,7 @@ EXAMPLE FIX CODE:`
 
 	jsonBody, _ := json.Marshal(body)
 
-	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		fmt.Println("Request creation failed:", err)
-		return
-	}
-
+	req, _ := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonBody))
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -86,9 +126,8 @@ EXAMPLE FIX CODE:`
 
 	respBody, _ := io.ReadAll(resp.Body)
 
-	var result AIResponse
-	err = json.Unmarshal(respBody, &result)
-	if err != nil || len(result.Choices) == 0 {
+	var result OpenAIStyleResponse
+	if err := json.Unmarshal(respBody, &result); err != nil || len(result.Choices) == 0 {
 		fmt.Println("Failed to parse AI response")
 		fmt.Println(string(respBody))
 		return
