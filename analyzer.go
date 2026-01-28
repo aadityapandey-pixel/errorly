@@ -98,7 +98,7 @@ EXAMPLE FIX CODE:`
 	}
 
 	// 🖥 OLLAMA FALLBACK (FREE LOCAL AI)
-	fmt.Println("🖥 No working cloud AI found, switching to Local Ollama... with phi3 modal")
+	fmt.Println("🖥 No working cloud AI found, switching to Local Ollama...with phi3 modal")
 	callOllama(systemPrompt + "\n" + userPrompt)
 }
 
