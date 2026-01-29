@@ -152,7 +152,7 @@ func callOllama(prompt string) {
 	jsonBody, _ := json.Marshal(body)
 
 	client := &http.Client{Timeout: 25 * time.Second}
-	resp, err := client.Post("http://localhost:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	resp, err := client.Post("http://10.0.50.53:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		fmt.Println("❌ Ollama not running. Install Ollama and run: ollama pull phi3")
 		return
