@@ -139,9 +139,21 @@ func callOpenAIStyleAPI(apiURL, model, apiKey, systemPrompt, userPrompt string) 
 }
 
 func callOllama(prompt string) {
-	fmt.Println("🖥 Ollama model being used: phi3")
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://localhost:11434"
+	}
+
+	model := os.Getenv("OLLAMA_MODEL")
+	if model == "" {
+		model = "phi3"
+	}
+
+	fmt.Println("🖥 Using Ollama at:", ollamaURL)
+	fmt.Println("🧠 Model:", model)
+
 	body := map[string]interface{}{
-		"model":  "phi3",
+		"model":  model,
 		"prompt": prompt,
 		"stream": false,
 		"options": map[string]interface{}{
@@ -152,9 +164,10 @@ func callOllama(prompt string) {
 	jsonBody, _ := json.Marshal(body)
 
 	client := &http.Client{Timeout: 25 * time.Second}
-	resp, err := client.Post("http://10.0.50.53:11434/api/generate", "application/json", bytes.NewBuffer(jsonBody))
+	resp, err := client.Post(ollamaURL+"/api/generate", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		fmt.Println("❌ Ollama not running. Install Ollama and run: ollama pull phi3")
+		fmt.Println("❌ Could not connect to Ollama server:", err)
+		fmt.Println("💡 Make sure Ollama is running at", ollamaURL)
 		return
 	}
 	defer resp.Body.Close()
